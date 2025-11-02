@@ -25,6 +25,7 @@ export default function Game({ playerName, endGame }) {
     ctx.lineWidth = 20;
     ctx.lineCap = "round";
     ctx.lineJoin = "round";
+    // Le style par défaut du tracé est noir, ce qui est compatible avec le fond blanc du canvas.
 
     let drawing = false;
 
@@ -77,7 +78,8 @@ export default function Game({ playerName, endGame }) {
     for (let y = 0; y < canvas.height; y++) {
       for (let x = 0; x < canvas.width; x++) {
         const index = (y * canvas.width + x) * 4;
-        if (imageData.data[index + 3] > 0) { // pixel non transparent
+        // Vérifie si le pixel n'est pas transparent (car le dessin est noir)
+        if (imageData.data[index + 3] > 0) {
           if (x < minX) minX = x;
           if (x > maxX) maxX = x;
           if (y < minY) minY = y;
@@ -87,10 +89,13 @@ export default function Game({ playerName, endGame }) {
     }
 
     if (maxX < minX || maxY < minY) {
-      // Dessin vide
+      // Dessin vide: retourne un canvas entièrement noir (0 pour le modèle)
       const blankCanvas = document.createElement("canvas");
       blankCanvas.width = 28;
       blankCanvas.height = 28;
+      const blankCtx = blankCanvas.getContext("2d");
+      blankCtx.fillStyle = "black";
+      blankCtx.fillRect(0, 0, 28, 28);
       return blankCanvas;
     }
 
@@ -103,11 +108,11 @@ export default function Game({ playerName, endGame }) {
     tempCanvas.height = 28;
     const tempCtx = tempCanvas.getContext("2d");
 
-    // Remplir fond noir
-    tempCtx.fillStyle = "black";
+    // CORRECTION 1a: Remplir le fond en BLANC (pour voir le dessin noir avant l'inversion)
+    tempCtx.fillStyle = "white"; 
     tempCtx.fillRect(0, 0, 28, 28);
 
-    // Dessin blanc centré
+    // Dessin noir centré
     const scale = Math.min(28 / width, 28 / height);
     tempCtx.drawImage(
       canvas,
@@ -117,6 +122,18 @@ export default function Game({ playerName, endGame }) {
       width * scale,
       height * scale
     );
+
+    // CORRECTION 1b: Inversion des couleurs côté client (Blanc/Noir -> Noir/Blanc)
+    // Résultat : Chiffre blanc sur fond noir (Format MNIST)
+    const finalImageData = tempCtx.getImageData(0, 0, 28, 28);
+    const data = finalImageData.data;
+    for (let i = 0; i < data.length; i += 4) {
+        // Inversion pour les canaux RGB
+        data[i] = 255 - data[i];     
+        data[i + 1] = 255 - data[i + 1]; 
+        data[i + 2] = 255 - data[i + 2]; 
+    }
+    tempCtx.putImageData(finalImageData, 0, 0);
 
     return tempCanvas;
   };
@@ -145,8 +162,12 @@ export default function Game({ playerName, endGame }) {
         console.warn("Réponse inattendue :", res.data);
       }
 
+      // CORRECTION 2: Réinitialiser la prédiction pour masquer le résultat de l'IA
+      setPrediction(null); 
+      
       // Nouveau chiffre
       setDigit(Math.floor(Math.random() * 10));
+      // Nettoyer le canvas
       canvasRef.current.getContext("2d").clearRect(0, 0, 280, 280);
 
     } catch (err) {
@@ -164,9 +185,11 @@ export default function Game({ playerName, endGame }) {
         ref={canvasRef}
         width={280}
         height={280}
-        style={{ border: "1px solid black" }}
+        // CORRECTION 3: Assurer que le fond du canvas est blanc pour le dessin de l'utilisateur
+        style={{ border: "1px solid black", backgroundColor: "white" }} 
       />
       <button onClick={handleSubmit}>Valider le dessin</button>
+      {/* L'affichage est désormais masqué par setPrediction(null) après la soumission */}
       {prediction !== null && <p>🤖 Prédiction IA : {prediction}</p>}
     </div>
   );

@@ -2,7 +2,7 @@ from flask import Flask, request, jsonify
 from flask_cors import CORS
 from tensorflow import keras
 import numpy as np
-from PIL import Image, ImageOps
+from PIL import Image, ImageOps # ImageOps est conservé mais non utilisé
 import io
 
 app = Flask(__name__)
@@ -20,12 +20,15 @@ def predict():
     try:
         # Récupérer l'image envoyée par le frontend
         image_file = request.files['image']
-        image = Image.open(io.BytesIO(image_file.read())).convert('L')  # niveaux de gris
+        # Convertir en niveaux de gris (L)
+        image = Image.open(io.BytesIO(image_file.read())).convert('L')  
 
-        # Inverser les couleurs si nécessaire (MNIST = fond noir, chiffre blanc)
-        image = ImageOps.invert(image)
+        # CORRECTION 2: SUPPRESSION de l'inversion des couleurs.
+        # Le frontend envoie désormais une image avec le bon format (fond noir, chiffre blanc).
+        # image = ImageOps.invert(image) <- LIGNE RETIRÉE
 
         # Redimensionner à 28x28 avec anti-aliasing
+        # C'est une vérification de sécurité même si le frontend envoie déjà 28x28
         image = image.resize((28,28), Image.Resampling.LANCZOS)
 
         # Convertir en array numpy et normaliser
