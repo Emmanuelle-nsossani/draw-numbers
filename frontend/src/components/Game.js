@@ -4,7 +4,7 @@ import axios from "axios";
 export default function Game({ playerName, endGame }) {
   const canvasRef = useRef(null);
   const [digit, setDigit] = useState(Math.floor(Math.random() * 10));
-  const [timeLeft, setTimeLeft] = useState(15); // Chronomètre 15 sec
+  const [timeLeft, setTimeLeft] = useState(60); // Chronomètre 15 sec
   const [score, setScore] = useState(0);
   const [prediction, setPrediction] = useState(null);
 
