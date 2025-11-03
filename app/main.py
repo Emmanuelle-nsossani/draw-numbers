@@ -13,16 +13,18 @@ from .models import db, User, Score # Importe l'objet db et les modèles User et
 app = Flask(__name__)
 
 # --- CONFIGURATION DE L'APPLICATION ET DE LA BASE DE DONNÉES ---
-# Clé secrète OBLIGATOIRE pour Flask-Login et la gestion des sessions
-# REMPLACER par une chaîne de caractères complexe dans un environnement de production
-app.config['SECRET_KEY'] = 'votre_clé_secrète_très_difficile_à_deviner'
-# Configuration de la base de données SQLite (stockée dans le dossier app/)
-app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///app/draw_numbers.db'
-app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 
+# 1. Détermine le chemin absolu du dossier 'app' où se trouve main.py
+basedir = os.path.abspath(os.path.dirname(__file__))
+
+app.config['SECRET_KEY'] = 'votre_clé_secrète_très_difficile_à_deviner'
+# 2. Utilise le chemin absolu pour la base de données
+app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///' + os.path.join(basedir, 'draw_numbers.db')
+app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 # Initialisation des extensions
 db.init_app(app) # Lie SQLAlchemy à l'application Flask
-CORS(app) 
+# CORS doit permettre les credentials (cookies de session) pour l'authentification
+CORS(app, supports_credentials=True) 
 
 # Initialisation du gestionnaire de connexion (Flask-Login)
 login_manager = LoginManager()
@@ -33,7 +35,7 @@ login_manager.init_app(app)
 def load_user(user_id):
     return User.query.get(int(user_id))
 
-# Charger le modèle IA (le fichier .h5 doit être généré par train_model.py)
+# Charger le modèle IA (le fichier .h5 doit être généré par train_model.py en CNN)
 model = keras.models.load_model("app/model/digit_model.h5")
 
 @app.route("/")
@@ -46,6 +48,9 @@ def predict():
         image_file = request.files['image']
         # Convertir en niveaux de gris (L)
         image = Image.open(io.BytesIO(image_file.read())).convert('L')  
+        
+        # Le frontend envoie déjà l'image au format Chiffre Blanc sur Fond Noir, 
+        # donc l'inversion côté backend est supprimée.
 
         # Redimensionner à 28x28 avec anti-aliasing
         image = image.resize((28,28), Image.Resampling.LANCZOS)
@@ -109,7 +114,7 @@ def login():
     if user is None or not user.check_password(password):
         return jsonify({"message": "Email ou mot de passe invalide"}), 401
 
-    # Connexion de l'utilisateur (crée la session)
+    # Connexion de l'utilisateur (crée la session et définit le cookie)
     login_user(user)
     
     return jsonify({
@@ -119,7 +124,7 @@ def login():
     }), 200
 
 @app.route("/api/logout", methods=["POST"])
-@login_required # Nécessite d'être connecté pour cette route
+@login_required 
 def logout():
     logout_user()
     return jsonify({"message": "Déconnexion réussie"}), 200
@@ -147,7 +152,7 @@ def save_score():
         return jsonify({"message": "Score ou ID utilisateur manquant."}), 400
 
     if user_id == 0:
-        # ID 0 ou null peut être réservé pour les invités (ne pas sauvegarder)
+        # ID 0 est le marqueur pour le mode Invité (non enregistré)
         return jsonify({"message": "Score invité, non enregistré en base."}), 200
 
     try:
